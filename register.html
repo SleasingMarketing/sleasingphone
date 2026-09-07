@@ -325,7 +325,7 @@ function calc(){
   const p = matches[Number($('price').value)];
 
   // เงินดาวน์เป็นเปอร์เซ็นต์ เช่น 0.15
-  const downPercent = Number($('down').value);
+  downPayment:p.price * Number($('down').value),
 
   const term = Number($('term').value);
 
