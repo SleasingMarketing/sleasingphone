@@ -1,3 +1,465 @@
-<!doctype html><html lang="th"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ลงทะเบียน S Leasing</title><style>body{font-family:Arial,Tahoma;background:linear-gradient(135deg,#102958,#2458a5);padding:15px;color:#17305b}.card{max-width:700px;margin:auto;background:white;border-radius:20px;padding:25px}input,select,button{width:100%;padding:12px;margin:6px 0 12px;border:1px solid #ccd6e5;border-radius:9px;font-size:16px}button{background:#2458a5;color:white;font-weight:bold}.hidden{display:none}.est{text-align:center;background:#eef5ff;padding:15px;border-radius:12px;font-size:20px}.err{color:#c22}</style><div class="card"><h1>ลงทะเบียนรับสิทธิพิเศษ</h1><form id="f"><label>ชื่อ-นามสกุล *</label><input id="name" required pattern="[ก-๙A-Za-z\s.]+"><label>เบอร์โทร *</label><input id="phone" required inputmode="numeric" maxlength="10"><label>OS *</label><select id="os" required></select><label>Brand *</label><select id="brand" required></select><label>Model *</label><select id="model" required></select><label>Detail *</label><select id="detail" required></select><label>Price *</label><select id="price" required></select><label>สนใจบริการเช่าซื้อ *</label><select id="service" required><option value="">เลือก</option><option>ไม่ต้องการ</option><option>ใช่ ต้องการ</option></select><div id="fin" class="hidden"><label>เงินดาวน์ที่สนใจวางดาวน์</label><select id="down"></select><label>จำนวนงวด</label><select id="term"></select></div><div id="est" class="est hidden">ค่างวดประมาณ <b id="amt">0</b> บาท/เดือน</div><p class="err" id="err"></p><button>ยืนยันลงทะเบียน</button></form><a href="index.html">กลับหน้าหลัก</a></div><script>
-const API_URL='https://script.google.com/macros/s/AKfycbzNpKfU_DhmyIOZRmBAcDwX6GaQuCySVmoq4e4xHtoTBQtipjz-hbQ9hU_dKM6caNHA/exec';let all=[],matches=[];const $=x=>document.getElementById(x);function jp(u){return new Promise((ok,no)=>{let c='c'+Date.now();window[c]=d=>{delete window[c];s.remove();ok(d)};let s=document.createElement('script');s.src=u+'&callback='+c;s.onerror=no;document.body.append(s)})}function fill(id,a,ph='เลือก'){let e=$(id);e.innerHTML='<option value="">'+ph+'</option>';a.forEach(x=>e.add(new Option(x.label??x,x.value??x)))}async function start(){let d=await jp(API_URL+'?action=catalog');all=d.products;fill('os',[...new Set(all.map(x=>x.os))]);fill('down',d.downPayments);fill('term',[...new Set(d.terms)].sort().map(x=>({label:x+' งวด',value:x})))}function filt(){return all.filter(x=>x.os==$('os').value&&x.brand==$('brand').value&&x.model==$('model').value&&x.detail==$('detail').value)}$('os').onchange=()=>{fill('brand',[...new Set(all.filter(x=>x.os==$('os').value).map(x=>x.brand))]);fill('model',[]);fill('detail',[]);fill('price',[])};$('brand').onchange=()=>{fill('model',[...new Set(all.filter(x=>x.os==$('os').value&&x.brand==$('brand').value).map(x=>x.model))]);fill('detail',[]);fill('price',[])};$('model').onchange=()=>{fill('detail',[...new Set(all.filter(x=>x.os==$('os').value&&x.brand==$('brand').value&&x.model==$('model').value).map(x=>x.detail))]);fill('price',[])};$('detail').onchange=()=>{matches=filt();fill('price',matches.map((x,i)=>({label:x.price.toLocaleString()+' บาท',value:i})))};function calc(){if($('service').value!=='ใช่ ต้องการ')return $('est').classList.add('hidden');let p=matches[$('price').value],d=+$('down').value,t=+$('term').value;if(!p||!d||!t)return $('est').classList.add('hidden');$('amt').textContent=Math.ceil(((((p.price-p.price*d)*100/107+p.insurance)*(1+.0125*t))/t)*1.07).toLocaleString();$('est').classList.remove('hidden')}$('service').onchange=()=>{$('fin').classList.toggle('hidden',$('service').value!=='ใช่ ต้องการ');calc()};$('price').onchange=calc;$('down').onchange=calc;$('term').onchange=calc;$('f').onsubmit=async e=>{e.preventDefault();let p=matches[$('price').value];let q=new URLSearchParams({action:'submit',name:$('name').value,phone:$('phone').value,os:p.os,brand:p.brand,model:p.model,detail:p.detail,price:p.price,service:$('service').value,downPercent:$('down').value,term:$('term').value});try{let d=await jp(API_URL+'?'+q);if(!d.ok)throw Error(d.message);sessionStorage.registration=JSON.stringify(d);location='summary.html'}catch(x){$('err').textContent=x.message}};start().catch(x=>$('err').textContent='โหลดข้อมูลไม่สำเร็จ: '+x.message)
-</script></html>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ลงทะเบียน S Leasing</title>
+
+<style>
+body{
+  font-family:Arial,Tahoma;
+  background:linear-gradient(135deg,#102958,#2458a5);
+  padding:15px;
+  color:#17305b
+}
+.card{
+  max-width:700px;
+  margin:auto;
+  background:white;
+  border-radius:20px;
+  padding:25px
+}
+input,select,button{
+  width:100%;
+  padding:12px;
+  margin:6px 0 12px;
+  border:1px solid #ccd6e5;
+  border-radius:9px;
+  font-size:16px;
+  box-sizing:border-box
+}
+button{
+  background:#2458a5;
+  color:white;
+  font-weight:bold;
+  cursor:pointer
+}
+.hidden{display:none}
+.est{
+  text-align:center;
+  background:#eef5ff;
+  padding:15px;
+  border-radius:12px;
+  font-size:20px;
+  margin:10px 0
+}
+.err{color:#c22}
+.loading{color:#2458a5}
+</style>
+</head>
+
+<body>
+<div class="card">
+
+<h1>ลงทะเบียนรับสิทธิพิเศษ</h1>
+
+<form id="f">
+
+<label>ชื่อ-นามสกุล *</label>
+<input id="name" required pattern="[ก-๙A-Za-z\s.]+" title="กรุณากรอกชื่อเป็นตัวอักษรเท่านั้น">
+
+<label>เบอร์โทร *</label>
+<input id="phone" required inputmode="numeric" maxlength="10">
+
+<label>OS *</label>
+<select id="os" required></select>
+
+<label>Brand *</label>
+<select id="brand" required></select>
+
+<label>Model *</label>
+<select id="model" required></select>
+
+<label>Detail *</label>
+<select id="detail" required></select>
+
+<label>Price *</label>
+<select id="price" required></select>
+
+<label>สนใจบริการเช่าซื้อ *</label>
+<select id="service" required>
+  <option value="">เลือก</option>
+  <option value="ไม่ต้องการ">ไม่ต้องการ</option>
+  <option value="ใช่ ต้องการ">ใช่ ต้องการ</option>
+</select>
+
+<div id="fin" class="hidden">
+
+<label>เงินดาวน์ที่สนใจวางดาวน์</label>
+<select id="down"></select>
+
+<label>จำนวนงวด</label>
+<select id="term"></select>
+
+</div>
+
+<div id="est" class="est hidden">
+  ค่างวดประมาณ <b id="amt">0</b> บาท/เดือน
+</div>
+
+<p class="err" id="err"></p>
+
+<button type="submit">ยืนยันลงทะเบียน</button>
+
+</form>
+
+<a href="index.html">กลับหน้าหลัก</a>
+
+</div>
+
+<script>
+
+const API_URL =
+'https://script.google.com/macros/s/AKfycbzNpKfU_DhmyIOZRmBAcDwX6GaQuCySVmoq4e4xHtoTBQtipjz-hbQ9hU_dKM6caNHA/exec';
+
+let all = [];
+let matches = [];
+let catalogData = {};
+
+const $ = id => document.getElementById(id);
+
+// ===============================
+// เรียก Apps Script แบบ JSONP
+// ===============================
+function jp(url){
+
+  return new Promise((resolve,reject)=>{
+
+    const callback = 'cb_' + Date.now();
+
+    window[callback] = data => {
+      delete window[callback];
+      script.remove();
+      resolve(data);
+    };
+
+    const script = document.createElement('script');
+
+    script.src = url + '&callback=' + callback;
+
+    script.onerror = () => {
+      delete window[callback];
+      script.remove();
+      reject(new Error('ไม่สามารถเชื่อมต่อ Apps Script ได้'));
+    };
+
+    document.body.appendChild(script);
+
+  });
+
+}
+
+// ===============================
+// เติม Dropdown
+// ===============================
+function fill(id, arr, placeholder='เลือก'){
+
+  const el = $(id);
+
+  el.innerHTML = '';
+
+  el.add(new Option(placeholder,''));
+
+  (arr || []).forEach(x => {
+
+    // รองรับทั้งข้อมูลแบบ String และ Object
+    const label = typeof x === 'object' ? x.label : x;
+    const value = typeof x === 'object'
+      ? (x.value ?? x.percent ?? x.label)
+      : x;
+
+    el.add(new Option(label, value));
+
+  });
+
+}
+
+// ===============================
+// โหลดข้อมูล
+// ===============================
+async function start(){
+
+  $('err').textContent = 'กำลังโหลดข้อมูล...';
+  $('err').className = 'loading';
+
+  const d = await jp(API_URL + '?action=catalog');
+
+  if (!d || !d.ok) {
+    throw new Error(d?.message || 'ไม่พบข้อมูลจาก Apps Script');
+  }
+
+  catalogData = d;
+
+  // รองรับชื่อ products / product
+  all = d.products || d.product || [];
+
+  if (!Array.isArray(all) || all.length === 0) {
+    throw new Error('ไม่พบข้อมูลสินค้าใน Sheet Product');
+  }
+
+  fill('os', [...new Set(all.map(x => x.os))]);
+
+  // เงินดาวน์เป็นเปอร์เซ็นต์
+  fill('down', d.downPayments || []);
+
+  // จำนวนงวด
+  fill(
+    'term',
+    [...new Set(d.terms || [])].sort((a,b)=>a-b)
+      .map(x => ({
+        label: x + ' งวด',
+        value: x
+      }))
+  );
+
+  $('err').textContent = '';
+  $('err').className = 'err';
+
+}
+
+// ===============================
+// กรองสินค้า
+// ===============================
+function filt(){
+
+  return all.filter(x =>
+    x.os === $('os').value &&
+    x.brand === $('brand').value &&
+    x.model === $('model').value &&
+    x.detail === $('detail').value
+  );
+
+}
+
+// ===============================
+// OS
+// ===============================
+$('os').onchange = () => {
+
+  fill(
+    'brand',
+    [...new Set(
+      all
+        .filter(x => x.os === $('os').value)
+        .map(x => x.brand)
+    )]
+  );
+
+  fill('model',[]);
+  fill('detail',[]);
+  fill('price',[]);
+
+};
+
+// ===============================
+// Brand
+// ===============================
+$('brand').onchange = () => {
+
+  fill(
+    'model',
+    [...new Set(
+      all
+        .filter(x =>
+          x.os === $('os').value &&
+          x.brand === $('brand').value
+        )
+        .map(x => x.model)
+    )]
+  );
+
+  fill('detail',[]);
+  fill('price',[]);
+
+};
+
+// ===============================
+// Model
+// ===============================
+$('model').onchange = () => {
+
+  fill(
+    'detail',
+    [...new Set(
+      all
+        .filter(x =>
+          x.os === $('os').value &&
+          x.brand === $('brand').value &&
+          x.model === $('model').value
+        )
+        .map(x => x.detail)
+    )]
+  );
+
+  fill('price',[]);
+
+};
+
+// ===============================
+// Detail
+// ===============================
+$('detail').onchange = () => {
+
+  matches = filt();
+
+  fill(
+    'price',
+    matches.map((x,i) => ({
+      label: Number(x.price).toLocaleString() + ' บาท',
+      value: i
+    }))
+  );
+
+};
+
+// ===============================
+// คำนวณค่างวด
+// ===============================
+function calc(){
+
+  if ($('service').value !== 'ใช่ ต้องการ') {
+    $('est').classList.add('hidden');
+    return;
+  }
+
+  const p = matches[Number($('price').value)];
+
+  // เงินดาวน์เป็นเปอร์เซ็นต์ เช่น 0.15
+  const downPercent = Number($('down').value);
+
+  const term = Number($('term').value);
+
+  if (!p || !downPercent || !term) {
+    $('est').classList.add('hidden');
+    return;
+  }
+
+  const downPayment = p.price * downPercent;
+
+  const installment = Math.ceil(
+    (
+      (
+        ((p.price - downPayment) * 100 / 107) +
+        Number(p.insurance || 0)
+      ) *
+      (1 + (0.0125 * term)) /
+      term
+    ) * 1.07
+  );
+
+  $('amt').textContent = installment.toLocaleString();
+
+  $('est').classList.remove('hidden');
+
+}
+
+// ===============================
+// เลือกบริการเช่าซื้อ
+// ===============================
+$('service').onchange = () => {
+
+  const show = $('service').value === 'ใช่ ต้องการ';
+
+  $('fin').classList.toggle('hidden', !show);
+
+  calc();
+
+};
+
+$('price').onchange = calc;
+$('down').onchange = calc;
+$('term').onchange = calc;
+
+// ===============================
+// Submit
+// ===============================
+$('f').onsubmit = async e => {
+
+  e.preventDefault();
+
+  $('err').textContent = 'กำลังบันทึกข้อมูล...';
+  $('err').className = 'loading';
+
+  const p = matches[Number($('price').value)];
+
+  if (!p) {
+    $('err').textContent = 'กรุณาเลือกสินค้า';
+    return;
+  }
+
+  const service = $('service').value;
+
+  const downPercent = Number($('down').value) || 0;
+
+  // แปลงเงินดาวน์จากเปอร์เซ็นต์เป็นจำนวนเงิน
+  const downPayment = service === 'ใช่ ต้องการ'
+    ? p.price * downPercent
+    : 0;
+
+  const term = service === 'ใช่ ต้องการ'
+    ? Number($('term').value)
+    : 0;
+
+  const q = new URLSearchParams({
+
+    action: 'submit',
+
+    name: $('name').value.trim(),
+
+    phone: $('phone').value,
+
+    os: p.os,
+
+    brand: p.brand,
+
+    model: p.model,
+
+    detail: p.detail,
+
+    price: p.price,
+
+    insurance: p.insurance || 0,
+
+    service: service,
+
+    downPayment: downPayment,
+
+    term: term
+
+  });
+
+  try {
+
+    const d = await jp(API_URL + '?' + q.toString());
+
+    if (!d.ok) {
+      throw new Error(d.message);
+    }
+
+    // บันทึกสำเร็จแล้วค่อยไปหน้าสรุป
+    sessionStorage.registration = JSON.stringify(d);
+
+    location = 'summary.html';
+
+  } catch (x) {
+
+    $('err').textContent = x.message;
+
+  }
+
+};
+
+// ===============================
+// เริ่มต้น
+// ===============================
+start().catch(x => {
+
+  $('err').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + x.message;
+  $('err').className = 'err';
+
+});
+
+</script>
+
+</body>
+</html>
