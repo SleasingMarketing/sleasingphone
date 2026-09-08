@@ -315,7 +315,10 @@ $('detail').onchange = () => {
 // ===============================
 // คำนวณค่างวด
 // ===============================
-function calc(){
+// ===============================
+// คำนวณค่างวด
+// ===============================
+function calc() {
 
   if ($('service').value !== 'ใช่ ต้องการ') {
     $('est').classList.add('hidden');
@@ -324,17 +327,23 @@ function calc(){
 
   const p = matches[Number($('price').value)];
 
-  // เงินดาวน์เป็นเปอร์เซ็นต์ เช่น 0.15
-  downPayment:p.price * Number($('down').value),
-
-  const term = Number($('term').value);
-
-  if (!p || !downPercent || !term) {
+  if (!p) {
     $('est').classList.add('hidden');
     return;
   }
 
+  // เงินดาวน์เป็นเปอร์เซ็นต์ เช่น 0.15
+  const downPercent = Number($('down').value) || 0;
+
+  // แปลงเปอร์เซ็นต์เป็นจำนวนเงิน
   const downPayment = p.price * downPercent;
+
+  const term = Number($('term').value);
+
+  if (!term) {
+    $('est').classList.add('hidden');
+    return;
+  }
 
   const installment = Math.ceil(
     (
@@ -347,10 +356,9 @@ function calc(){
     ) * 1.07
   );
 
-  $('amt').textContent = installment.toLocaleString();
+  $('amt').textContent = installment.toLocaleString('th-TH');
 
   $('est').classList.remove('hidden');
-
 }
 
 // ===============================
